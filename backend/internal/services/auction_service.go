@@ -23,15 +23,18 @@ type AuctionService struct {
 	engines map[uuid.UUID]*auction.Engine
 	events  map[uuid.UUID][]chan domain.ActivityEvent
 	results map[uuid.UUID]*AuctionResultResponse
+	userIDs map[uuid.UUID]uuid.UUID
+	userRepo domain.UserRepository
 }
 
 type AuctionResultResponse struct {
-	AuctionID  string               `json:"auction_id"`
-	WinnerID   string               `json:"winner_id"`
-	WinnerName string               `json:"winner_name"`
-	Teams      []TeamResultResponse `json:"teams"`
-	Rewards    *ProgressionReward   `json:"rewards,omitempty"`
-	Ready      bool                 `json:"ready"`
+	AuctionID  string                  `json:"auction_id"`
+	WinnerID   string                  `json:"winner_id"`
+	WinnerName string                  `json:"winner_name"`
+	Teams      []TeamResultResponse    `json:"teams"`
+	Awards     *scoring.Awards         `json:"awards,omitempty"`
+	Rewards    *ProgressionReward      `json:"rewards,omitempty"`
+	Ready      bool                    `json:"ready"`
 }
 
 type TeamResultResponse struct {
@@ -52,11 +55,13 @@ type ProgressionReward struct {
 	RankPoints int `json:"rank_points"`
 }
 
-func NewAuctionService() *AuctionService {
+func NewAuctionService(userRepo domain.UserRepository) *AuctionService {
 	return &AuctionService{
-		engines: make(map[uuid.UUID]*auction.Engine),
-		events:  make(map[uuid.UUID][]chan domain.ActivityEvent),
-		results: make(map[uuid.UUID]*AuctionResultResponse),
+		engines:  make(map[uuid.UUID]*auction.Engine),
+		events:   make(map[uuid.UUID][]chan domain.ActivityEvent),
+		results:  make(map[uuid.UUID]*AuctionResultResponse),
+		userIDs:  make(map[uuid.UUID]uuid.UUID),
+		userRepo: userRepo,
 	}
 }
 
@@ -92,6 +97,7 @@ func (s *AuctionService) Create(ctx context.Context, userID uuid.UUID, input Cre
 
 	s.mu.Lock()
 	s.engines[auctionID] = engine
+	s.userIDs[auctionID] = userID
 	s.mu.Unlock()
 
 	aiList := make([]map[string]interface{}, len(aiManagers))
@@ -133,9 +139,14 @@ func (s *AuctionService) Start(ctx context.Context, auctionID uuid.UUID) (map[st
 
 	engine.SetEventHandler(func(event domain.ActivityEvent) {
 		s.broadcastEvent(auctionID, event)
+		if event.Type == "auction_completed" {
+			go s.finalizeAuction(auctionID, engine)
+		}
 	})
 
-	engine.Start()
+	if _, err := engine.Start(); err != nil {
+		return nil, domain.New("START_ERROR", err.Error(), 400)
+	}
 	go s.runAuctionLoop(auctionID, engine)
 
 	return s.buildStateResponse(engine), nil
@@ -148,7 +159,7 @@ func (s *AuctionService) runAuctionLoop(auctionID uuid.UUID, engine *auction.Eng
 	aiCounter := 0
 	for range ticker.C {
 		state := engine.GetState()
-		if state.Status == domain.AuctionStatusCompleted {
+		if state.Status == domain.AuctionStatusCalculating || state.Status == domain.AuctionStatusCompleted || state.Status == domain.AuctionStatusFailed {
 			s.finalizeAuction(auctionID, engine)
 			return
 		}
@@ -163,7 +174,10 @@ func (s *AuctionService) runAuctionLoop(auctionID uuid.UUID, engine *auction.Eng
 
 		expired, _ := engine.TickTimer()
 		if expired {
-			_, completed := engine.ResolveCurrentPlayer()
+			_, completed, err := engine.ResolveCurrentPlayer()
+			if err != nil {
+				continue
+			}
 			aiCounter = 0
 			if completed {
 				s.finalizeAuction(auctionID, engine)
@@ -181,37 +195,81 @@ func (s *AuctionService) finalizeAuction(auctionID uuid.UUID, engine *auction.En
 	}
 	s.mu.Unlock()
 
-	participants := engine.GetParticipants()
-	var teams []TeamResultResponse
-	var winner TeamResultResponse
-	winnerScore := -1.0
+	state := engine.GetState()
+	if state.Status != domain.AuctionStatusCalculating {
+		return
+	}
 
-	for _, p := range participants {
-		formation := scoring.BestFormation(p.Squad)
-		analysis := scoring.EvaluateWithBudget(p.Squad, formation, p.InitialBudget)
-		team := TeamResultResponse{
-			ParticipantID: p.ID.String(),
-			Name:          p.Name,
-			Type:          string(p.Type),
-			Formation:     string(formation),
-			TotalScore:    analysis.Breakdown.TotalScore,
-			Breakdown:     analysis.Breakdown,
-			Strengths:     analysis.Strengths,
-			Weaknesses:    analysis.Weaknesses,
-			SquadSize:     len(p.Squad),
+	participants := engine.GetParticipants()
+	res := scoring.CalculateWinnerAndAwards(participants)
+
+	var teams []TeamResultResponse
+	for _, t := range res.Teams {
+		teams = append(teams, TeamResultResponse{
+			ParticipantID: t.ParticipantID,
+			Name:          t.Name,
+			Type:          t.Type,
+			Formation:     t.Formation,
+			TotalScore:    t.TotalScore,
+			Breakdown:     t.Breakdown,
+			Strengths:     t.Strengths,
+			Weaknesses:    t.Weaknesses,
+			SquadSize:     t.SquadSize,
+		})
+	}
+
+	var rewards *ProgressionReward
+	s.mu.RLock()
+	userID, hasUser := s.userIDs[auctionID]
+	s.mu.RUnlock()
+
+	if hasUser {
+		var humanScore float64
+		var humanPartID string
+		for _, t := range teams {
+			if t.Type == "human" {
+				humanScore = t.TotalScore
+				humanPartID = t.ParticipantID
+				break
+			}
 		}
-		teams = append(teams, team)
-		if team.TotalScore > winnerScore {
-			winnerScore = team.TotalScore
-			winner = team
-		}
+
+		isWin := res.WinnerID == humanPartID
+		rewardVal := calculateProgressionRewards(isWin, state.Config.Difficulty, humanScore)
+		rewards = &rewardVal
+
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			user, err := s.userRepo.GetByID(ctx, userID)
+			if err == nil && user != nil {
+				var winsDelta, lossesDelta int
+				if isWin {
+					winsDelta = 1
+				} else {
+					lossesDelta = 1
+				}
+				_ = s.userRepo.UpdateProgression(
+					ctx,
+					userID,
+					int64(rewardVal.Coins),
+					int64(rewardVal.XP),
+					rewardVal.RankPoints,
+					winsDelta,
+					lossesDelta,
+				)
+			}
+		}()
 	}
 
 	result := &AuctionResultResponse{
 		AuctionID:  auctionID.String(),
-		WinnerID:   winner.ParticipantID,
-		WinnerName: winner.Name,
+		WinnerID:   res.WinnerID,
+		WinnerName: res.WinnerName,
 		Teams:      teams,
+		Awards:     &res.Awards,
+		Rewards:    rewards,
 		Ready:      true,
 	}
 
@@ -219,7 +277,77 @@ func (s *AuctionService) finalizeAuction(auctionID uuid.UUID, engine *auction.En
 	s.results[auctionID] = result
 	s.mu.Unlock()
 
+	_ = engine.Complete(true)
 	engine.MarkResultsReady()
+
+	s.broadcastEvent(auctionID, domain.ActivityEvent{
+		Type:      "results_ready",
+		Icon:      "📊",
+		Message:   "Results are ready!",
+		Timestamp: time.Now(),
+	})
+
+	time.AfterFunc(2*time.Second, func() {
+		s.cleanupAuctionChannels(auctionID)
+	})
+}
+
+func (s *AuctionService) cleanupAuctionChannels(auctionID uuid.UUID) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	channels, ok := s.events[auctionID]
+	if !ok {
+		return
+	}
+	for _, ch := range channels {
+		close(ch)
+	}
+	delete(s.events, auctionID)
+}
+
+func calculateProgressionRewards(isWin bool, difficulty domain.Difficulty, score float64) ProgressionReward {
+	var baseCoins, baseXP, baseRankPoints int
+	if isWin {
+		baseCoins = 150
+		baseXP = 250
+		baseRankPoints = 35
+	} else {
+		baseCoins = 50
+		baseXP = 100
+		baseRankPoints = 10
+	}
+
+	var multiplier float64
+	switch difficulty {
+	case domain.DifficultyEasy:
+		multiplier = 0.8
+	case domain.DifficultyMedium:
+		multiplier = 1.0
+	case domain.DifficultyHard:
+		multiplier = 1.3
+	case domain.DifficultyLegendary:
+		multiplier = 1.6
+	default:
+		multiplier = 1.0
+	}
+
+	coins := int(float64(baseCoins) * multiplier)
+	xp := int(float64(baseXP) * multiplier)
+	rankPoints := int(float64(baseRankPoints) * multiplier)
+
+	if score > 90 {
+		coins += 50
+		xp += 50
+	} else if score > 80 {
+		coins += 25
+		xp += 25
+	}
+
+	return ProgressionReward{
+		Coins:      coins,
+		XP:         xp,
+		RankPoints: rankPoints,
+	}
 }
 
 func (s *AuctionService) GetState(ctx context.Context, auctionID uuid.UUID) (map[string]interface{}, error) {
@@ -374,7 +502,7 @@ func (s *AuctionService) GetResults(ctx context.Context, auctionID uuid.UUID) (*
 
 	if engineOk {
 		state := engine.GetState()
-		if state.Status == domain.AuctionStatusCompleted {
+		if state.Status == domain.AuctionStatusCalculating || state.Status == domain.AuctionStatusCompleted {
 			s.finalizeAuction(auctionID, engine)
 			s.mu.RLock()
 			result, ok = s.results[auctionID]

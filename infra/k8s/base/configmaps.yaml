@@ -1,0 +1,23 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ConfigMaps — non-sensitive environment configuration
+# Secrets are stored in backend-secret / postgres-secret (apply separately)
+# ─────────────────────────────────────────────────────────────────────────────
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: auctionxi
+data:
+  CORS_ORIGIN: "https://13.202.198.9"   # Replace with actual domain/IP
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: auctionxi
+data:
+  NEXT_PUBLIC_API_URL: "https://13.202.198.9/api/v1"   # Replace
+  NEXT_PUBLIC_WS_URL: "wss://13.202.198.9"             # Replace

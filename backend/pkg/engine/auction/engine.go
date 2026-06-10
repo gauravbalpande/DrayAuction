@@ -80,9 +80,13 @@ func (e *Engine) SetEventHandler(fn func(domain.ActivityEvent)) {
 	e.onEvent = fn
 }
 
-func (e *Engine) Start() domain.ActivityEvent {
+func (e *Engine) Start() (domain.ActivityEvent, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
+	if err := domain.ValidateTransition(e.state.Status, domain.AuctionStatusLive); err != nil {
+		return domain.ActivityEvent{}, err
+	}
 
 	e.state.Status = domain.AuctionStatusLive
 	e.state.CurrentIndex = 0
@@ -93,7 +97,7 @@ func (e *Engine) Start() domain.ActivityEvent {
 	player := e.state.PlayerPool[0]
 	event := e.presentPlayerEvent(player)
 	e.emit(event)
-	return event
+	return event, nil
 }
 
 func (e *Engine) PlaceBid(participantID uuid.UUID, amount int64) error {
@@ -239,9 +243,13 @@ func (e *Engine) RunAICycle() {
 	}
 }
 
-func (e *Engine) ResolveCurrentPlayer() (*domain.ActivityEvent, bool) {
+func (e *Engine) ResolveCurrentPlayer() (*domain.ActivityEvent, bool, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
+	if err := domain.ValidateTransition(e.state.Status, domain.AuctionStatusResolving); err != nil {
+		return nil, false, err
+	}
 
 	e.state.Status = domain.AuctionStatusResolving
 	player := e.currentPlayer()
@@ -279,7 +287,10 @@ func (e *Engine) ResolveCurrentPlayer() (*domain.ActivityEvent, bool) {
 
 	e.state.CurrentIndex++
 	if e.shouldEnd() {
-		e.state.Status = domain.AuctionStatusCompleted
+		if err := domain.ValidateTransition(domain.AuctionStatusResolving, domain.AuctionStatusCalculating); err != nil {
+			return &event, true, err
+		}
+		e.state.Status = domain.AuctionStatusCalculating
 		completeEvent := domain.ActivityEvent{
 			Type:      "auction_completed",
 			Icon:      "🎉",
@@ -287,9 +298,12 @@ func (e *Engine) ResolveCurrentPlayer() (*domain.ActivityEvent, bool) {
 			Timestamp: time.Now(),
 		}
 		e.emit(completeEvent)
-		return &event, true
+		return &event, true, nil
 	}
 
+	if err := domain.ValidateTransition(domain.AuctionStatusResolving, domain.AuctionStatusLive); err != nil {
+		return &event, false, err
+	}
 	e.state.Status = domain.AuctionStatusLive
 	e.state.TimerSeconds = InitialTimerSeconds
 	e.state.TimerMax = InitialTimerSeconds
@@ -298,7 +312,24 @@ func (e *Engine) ResolveCurrentPlayer() (*domain.ActivityEvent, bool) {
 	nextPlayer := e.currentPlayer()
 	presentEvent := e.presentPlayerEvent(nextPlayer)
 	e.emit(presentEvent)
-	return &event, false
+	return &event, false, nil
+}
+
+func (e *Engine) Complete(success bool) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	targetStatus := domain.AuctionStatusCompleted
+	if !success {
+		targetStatus = domain.AuctionStatusFailed
+	}
+
+	if err := domain.ValidateTransition(e.state.Status, targetStatus); err != nil {
+		return err
+	}
+
+	e.state.Status = targetStatus
+	return nil
 }
 
 func (e *Engine) presentPlayerEvent(player domain.GeneratedPlayer) domain.ActivityEvent {

@@ -1,0 +1,13 @@
+apiVersion: v2
+name: auctionxi
+description: AuctionXI — Football Auction Simulation Platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - auctionxi
+  - football
+  - auction
+home: https://github.com/YOUR_GITHUB_USERNAME/DrayAuction
+maintainers:
+  - name: Gaurav Balpande

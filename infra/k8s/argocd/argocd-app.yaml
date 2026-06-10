@@ -1,0 +1,44 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ArgoCD Application — GitOps sync definition
+# This tells ArgoCD to watch the infra/k8s/base directory
+# and sync it to the auctionxi namespace.
+#
+# Apply this to ArgoCD namespace:
+#   kubectl apply -f argocd-app.yaml -n argocd
+# ─────────────────────────────────────────────────────────────────────────────
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: auctionxi
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    # Replace with your actual GitHub repository URL
+    repoURL: https://github.com/gauravbalpande/DrayAuction.git
+    targetRevision: main
+    path: infra/k8s/base
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: auctionxi
+
+  syncPolicy:
+    automated:
+      prune: true          # Delete resources removed from Git
+      selfHeal: true       # Auto-revert manual cluster changes
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

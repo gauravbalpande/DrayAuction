@@ -1,0 +1,112 @@
+name: 🔒 Security & Quality Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run every Monday at 9am UTC
+    - cron: "0 9 * * 1"
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Terraform validation
+  # ──────────────────────────────────────────────────────────────────────────
+  terraform-validate:
+    name: 🏗 Terraform Validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init (local backend for validation only)
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # tfsec — Terraform security scanning
+  # ──────────────────────────────────────────────────────────────────────────
+  tfsec:
+    name: 🔐 tfsec
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          working_directory: infra/terraform
+          soft_fail: true    # Report but don't fail CI (strict mode optional later)
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Go security scan (gosec)
+  # ──────────────────────────────────────────────────────────────────────────
+  gosec:
+    name: 🔐 gosec
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Install gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+      - name: Run gosec
+        run: gosec -fmt sarif -out gosec.sarif ./... || true
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: backend/gosec.sarif
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Dependency audit (npm)
+  # ──────────────────────────────────────────────────────────────────────────
+  npm-audit:
+    name: 📦 npm audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run audit
+        run: npm audit --audit-level=high || true

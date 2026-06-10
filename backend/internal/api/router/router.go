@@ -24,6 +24,7 @@ func New(deps Dependencies) *gin.Engine {
 	}
 
 	r := gin.New()
+	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 	r.Use(middleware.SecurityHeaders())
 	r.Use(middleware.CORS(deps.AllowOrigins))
@@ -75,7 +76,7 @@ func NewDefault() *gin.Engine {
 	userRepo := repositories.NewMemoryUserRepository()
 	tokenRepo := repositories.NewMemoryRefreshTokenRepository()
 	authService := services.NewAuthService(userRepo, tokenRepo, jwtManager)
-	auctionService := services.NewAuctionService()
+	auctionService := services.NewAuctionService(userRepo)
 
 	return New(Dependencies{
 		AuthHandler:    handlers.NewAuthHandler(authService),

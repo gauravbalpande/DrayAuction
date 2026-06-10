@@ -50,7 +50,7 @@ func Load() *Config {
 		JWT: JWTConfig{
 			AccessSecret:  getEnv("JWT_ACCESS_SECRET", "dev-access-secret-change-in-production"),
 			RefreshSecret: getEnv("JWT_REFRESH_SECRET", "dev-refresh-secret-change-in-production"),
-			AccessExpiry:  parseDuration(getEnv("JWT_ACCESS_EXPIRY", "15m")),
+			AccessExpiry:  parseDuration(getEnv("JWT_ACCESS_EXPIRY", "24h")),
 			RefreshExpiry: parseDuration(getEnv("JWT_REFRESH_EXPIRY", "168h")),
 		},
 	}
@@ -66,7 +66,7 @@ func getEnv(key, fallback string) string {
 func parseDuration(s string) time.Duration {
 	d, err := time.ParseDuration(s)
 	if err != nil {
-		return 15 * time.Minute
+		return 24 * time.Hour
 	}
 	return d
 }

@@ -34,7 +34,7 @@ func main() {
 	userRepo := repositories.NewMemoryUserRepository()
 	tokenRepo := repositories.NewMemoryRefreshTokenRepository()
 	authService := services.NewAuthService(userRepo, tokenRepo, jwtManager)
-	auctionService := services.NewAuctionService()
+	auctionService := services.NewAuctionService(userRepo)
 
 	r := router.New(router.Dependencies{
 		AuthHandler:    handlers.NewAuthHandler(authService),

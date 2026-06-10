@@ -13,6 +13,24 @@ func TestGeneratePoolSize(t *testing.T) {
 	}
 }
 
+func TestVerifyRealPlayers(t *testing.T) {
+	for _, p := range realPlayers {
+		if p.Value < 1_000_000 {
+			t.Errorf("Player %s has value less than 1M: %d", p.Name, p.Value)
+		}
+		if p.Rating <= 0 {
+			t.Errorf("Player %s has invalid rating: %d", p.Name, p.Rating)
+		}
+		if p.Name == "" || p.Position == "" || p.Club == "" || p.Nation == "" || p.League == "" || p.Age <= 0 || p.Attack <= 0 || p.Passing <= 0 || p.Defending <= 0 || p.Physical <= 0 {
+			t.Errorf("Player %+v has zero or empty fields", p)
+		}
+	}
+}
+
+func TestPrintRealPlayersLength(t *testing.T) {
+	t.Logf("Number of real players in database: %d", len(realPlayers))
+}
+
 func TestGeneratePoolRealNames(t *testing.T) {
 	pool := GeneratePool(40, 42)
 	found := false

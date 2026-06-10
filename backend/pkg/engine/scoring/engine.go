@@ -313,6 +313,12 @@ func EvaluateWithBudget(squad []domain.SquadPlayer, formation domain.Formation, 
 		chem*0.10 + bench*0.07 + form*0.08 + fit*0.09 + depth*0.05 +
 		budgetEff*0.05 + balance*0.05
 
+	if len(squad) < 7 {
+		total = 0.0
+	} else if len(squad) < 11 {
+		total = total * 0.5
+	}
+
 	breakdown := domain.ScoreBreakdown{
 		AttackScore:      attack,
 		MidfieldScore:    midfield,
@@ -396,7 +402,11 @@ func detectWeaknesses(b domain.ScoreBreakdown, squad []domain.SquadPlayer) []str
 	if !hasGK {
 		w = append(w, "No goalkeeper — critical weakness")
 	}
-	if len(squad) < 13 {
+	if len(squad) < 7 {
+		w = append(w, "Incomplete squad (less than 7 players) — disqualified")
+	} else if len(squad) < 11 {
+		w = append(w, "Squad size below minimum 11 — severe rating penalty applied")
+	} else if len(squad) < 13 {
 		w = append(w, fmt.Sprintf("Squad size %d below recommended 13", len(squad)))
 	}
 	if len(w) == 0 {

@@ -29,12 +29,14 @@ const (
 type AuctionStatus string
 
 const (
-	AuctionStatusSetup     AuctionStatus = "setup"
-	AuctionStatusRulebook  AuctionStatus = "rulebook"
-	AuctionStatusLive      AuctionStatus = "live"
-	AuctionStatusResolving AuctionStatus = "resolving"
-	AuctionStatusCompleted AuctionStatus = "completed"
-	AuctionStatusCancelled AuctionStatus = "cancelled"
+	AuctionStatusSetup       AuctionStatus = "setup"
+	AuctionStatusRulebook    AuctionStatus = "rulebook"
+	AuctionStatusLive        AuctionStatus = "live"
+	AuctionStatusResolving   AuctionStatus = "resolving"
+	AuctionStatusCalculating AuctionStatus = "calculating_results"
+	AuctionStatusCompleted   AuctionStatus = "completed"
+	AuctionStatusCancelled   AuctionStatus = "cancelled"
+	AuctionStatusFailed      AuctionStatus = "failed"
 )
 
 type ParticipantType string

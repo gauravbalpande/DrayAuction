@@ -33,7 +33,7 @@ spec:
         - name: ecr-secret
       containers:
         - name: frontend
-          image: 040342463442.dkr.ecr.ap-south-1.amazonaws.com/auctionxi/frontend:latest
+          image: 040342463442.dkr.ecr.ap-south-1.amazonaws.com/auctionxi/frontend:cc9fec566a6f0793c1d56ef58a0c658e511cf9fe
           imagePullPolicy: Always
           ports:
             - containerPort: 3000

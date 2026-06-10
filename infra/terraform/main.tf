@@ -49,33 +49,33 @@ module "ecr" {
 }
 
 module "iam" {
-  source      = "./modules/iam"
-  project     = var.project
-  environment = var.environment
-  aws_region  = var.aws_region
+  source         = "./modules/iam"
+  project        = var.project
+  environment    = var.environment
+  aws_region     = var.aws_region
   aws_account_id = data.aws_caller_identity.current.account_id
 }
 
 module "ec2" {
-  source              = "./modules/ec2"
-  project             = var.project
-  environment         = var.environment
-  aws_region          = var.aws_region
-  vpc_id              = module.networking.vpc_id
-  subnet_id           = module.networking.public_subnet_id
-  security_group_id   = module.networking.ec2_security_group_id
-  instance_type       = var.ec2_instance_type
-  key_name            = var.ec2_key_name
+  source                = "./modules/ec2"
+  project               = var.project
+  environment           = var.environment
+  aws_region            = var.aws_region
+  vpc_id                = module.networking.vpc_id
+  subnet_id             = module.networking.public_subnet_id
+  security_group_id     = module.networking.ec2_security_group_id
+  instance_type         = var.ec2_instance_type
+  key_name              = var.ec2_key_name
   instance_profile_name = module.iam.ec2_instance_profile_name
-  ecr_backend_url     = module.ecr.backend_repository_url
-  ecr_frontend_url    = module.ecr.frontend_repository_url
-  domain_name         = var.domain_name
+  ecr_backend_url       = module.ecr.backend_repository_url
+  ecr_frontend_url      = module.ecr.frontend_repository_url
+  domain_name           = var.domain_name
 }
 
 module "route53" {
-  source      = "./modules/route53"
-  domain_name = var.domain_name
-  ec2_public_ip = module.ec2.public_ip
+  source                 = "./modules/route53"
+  domain_name            = var.domain_name
+  ec2_public_ip          = module.ec2.public_ip
   create_route53_records = var.create_route53_records
 }
 

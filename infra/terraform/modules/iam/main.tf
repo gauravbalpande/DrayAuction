@@ -3,9 +3,9 @@
 # Creates IAM roles and instance profiles for EC2 (ECR pull, SSM access)
 # ─────────────────────────────────────────────────────────────────────────────
 
-variable "project"        {}
-variable "environment"    {}
-variable "aws_region"     {}
+variable "project" {}
+variable "environment" {}
+variable "aws_region" {}
 variable "aws_account_id" {}
 
 # ── EC2 → ECR + SSM role ─────────────────────────────────────────────────────

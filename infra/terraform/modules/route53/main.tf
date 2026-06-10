@@ -3,9 +3,9 @@
 # Creates A record pointing domain to EC2 Elastic IP (optional)
 # ─────────────────────────────────────────────────────────────────────────────
 
-variable "domain_name"             { default = "" }
-variable "ec2_public_ip"           {}
-variable "create_route53_records"  { default = false }
+variable "domain_name" { default = "" }
+variable "ec2_public_ip" {}
+variable "create_route53_records" { default = false }
 
 data "aws_route53_zone" "main" {
   count = var.create_route53_records && var.domain_name != "" ? 1 : 0

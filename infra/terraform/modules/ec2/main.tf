@@ -3,18 +3,18 @@
 # Creates the single-node EC2 instance running k3s
 # ─────────────────────────────────────────────────────────────────────────────
 
-variable "project"               {}
-variable "environment"           {}
-variable "aws_region"            {}
-variable "vpc_id"                {}
-variable "subnet_id"             {}
-variable "security_group_id"     {}
-variable "instance_type"         {}
-variable "key_name"              {}
+variable "project" {}
+variable "environment" {}
+variable "aws_region" {}
+variable "vpc_id" {}
+variable "subnet_id" {}
+variable "security_group_id" {}
+variable "instance_type" {}
+variable "key_name" {}
 variable "instance_profile_name" {}
-variable "ecr_backend_url"       {}
-variable "ecr_frontend_url"      {}
-variable "domain_name"           { default = "" }
+variable "ecr_backend_url" {}
+variable "ecr_frontend_url" {}
+variable "domain_name" { default = "" }
 
 # ── Ubuntu 22.04 LTS AMI (latest) ────────────────────────────────────────────
 
@@ -52,7 +52,7 @@ resource "aws_eip_association" "ec2" {
 
 resource "aws_ebs_volume" "data" {
   availability_zone = "${var.aws_region}a"
-  size              = 20  # 20 GiB for PostgreSQL + Redis data
+  size              = 20 # 20 GiB for PostgreSQL + Redis data
   type              = "gp3"
   encrypted         = true
 
@@ -72,11 +72,11 @@ resource "aws_volume_attachment" "data" {
 
 locals {
   userdata = templatefile("${path.module}/userdata.sh", {
-    project         = var.project
-    environment     = var.environment
-    aws_region      = var.aws_region
-    domain_name     = var.domain_name
-    ecr_backend_url = var.ecr_backend_url
+    project          = var.project
+    environment      = var.environment
+    aws_region       = var.aws_region
+    domain_name      = var.domain_name
+    ecr_backend_url  = var.ecr_backend_url
     ecr_frontend_url = var.ecr_frontend_url
     // first change(1)
     ecr_registry = split("/", var.ecr_backend_url)[0]
@@ -96,7 +96,7 @@ resource "aws_instance" "main" {
   user_data = local.userdata
 
   root_block_device {
-    volume_size           = 30   # 30 GiB root — k3s images, OS
+    volume_size           = 30 # 30 GiB root — k3s images, OS
     volume_type           = "gp3"
     encrypted             = true
     delete_on_termination = true
@@ -108,7 +108,7 @@ resource "aws_instance" "main" {
 
   metadata_options {
     http_endpoint               = "enabled"
-    http_tokens                 = "required"  # IMDSv2 (security best practice)
+    http_tokens                 = "required" # IMDSv2 (security best practice)
     http_put_response_hop_limit = 1
   }
 
@@ -118,7 +118,7 @@ resource "aws_instance" "main" {
   }
 
   lifecycle {
-    ignore_changes = [user_data, ami]  # Don't recreate on AMI updates
+    ignore_changes = [user_data, ami] # Don't recreate on AMI updates
   }
 }
 

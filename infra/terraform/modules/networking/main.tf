@@ -3,10 +3,10 @@
 # Creates VPC, public subnet, internet gateway, route table, security groups
 # ─────────────────────────────────────────────────────────────────────────────
 
-variable "project"     {}
+variable "project" {}
 variable "environment" {}
-variable "aws_region"  {}
-variable "vpc_cidr"    {}
+variable "aws_region" {}
+variable "vpc_cidr" {}
 
 # ── VPC ──────────────────────────────────────────────────────────────────────
 
@@ -76,7 +76,7 @@ resource "aws_security_group" "ec2" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Tighten to your IP: ["X.X.X.X/32"]
+    cidr_blocks = ["0.0.0.0/0"] # Tighten to your IP: ["X.X.X.X/32"]
   }
 
   # HTTP (NGINX Ingress → redirects to HTTPS)
@@ -103,7 +103,7 @@ resource "aws_security_group" "ec2" {
     from_port   = 6443
     to_port     = 6443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Tighten to your IP: ["X.X.X.X/32"]
+    cidr_blocks = ["0.0.0.0/0"] # Tighten to your IP: ["X.X.X.X/32"]
   }
 
   # WebSocket (pass-through via NGINX Ingress on 443)

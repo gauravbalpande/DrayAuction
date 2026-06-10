@@ -3,7 +3,7 @@
 # Creates private ECR repositories for backend and frontend images
 # ─────────────────────────────────────────────────────────────────────────────
 
-variable "project"     {}
+variable "project" {}
 variable "environment" {}
 
 resource "aws_ecr_repository" "backend" {

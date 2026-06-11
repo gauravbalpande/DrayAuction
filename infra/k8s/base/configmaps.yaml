@@ -19,5 +19,5 @@ metadata:
   name: frontend-config
   namespace: auctionxi
 data:
-  NEXT_PUBLIC_API_URL: "https://13.202.198.9/api/v1"   # Replace
-  NEXT_PUBLIC_WS_URL: "wss://13.202.198.9"             # Replace
+  NEXT_PUBLIC_API_URL: "https://auctionxi.in/api/v1"   # Replace
+  NEXT_PUBLIC_WS_URL: "wss://auctionxi.in/ws"             # Replace

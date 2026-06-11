@@ -34,25 +34,25 @@ metadata:
     nginx.ingress.kubernetes.io/cors-allow-headers: "Authorization, Content-Type"
 
     # HTTP → HTTPS redirect (uncomment when TLS is configured)
-    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
     # cert-manager TLS (uncomment when ready)
-    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
 
     # Rate limiting — 100 req/min per IP
     nginx.ingress.kubernetes.io/limit-rps: "100"
 
 spec:
   # Uncomment and set your domain for TLS:
-  # tls:
-  #   - hosts:
-  #       - your-domain.com
-  #       - www.your-domain.com
-  #     secretName: auctionxi-tls
+  tls:
+    - hosts:
+        - auctionxi.online
+        - www.auctionxi.online
+      secretName: auctionxi-tls
 
   rules:
     # Replace with your actual domain, or leave as-is for IP access
-    - host: ""    # Leave empty for IP-only access OR set to "your-domain.com"
+    - host: "auctionxi.online"    # Leave empty for IP-only access OR set to "your-domain.com"
       http:
         paths:
           # API routes — go to backend

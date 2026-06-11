@@ -187,3 +187,4 @@ jobs:
           echo "| ArgoCD Sync | Auto-triggered (watch manifest changes) |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "ArgoCD will automatically detect the manifest change and roll out the new image." >> $GITHUB_STEP_SUMMARY
+          echo "just for testing"

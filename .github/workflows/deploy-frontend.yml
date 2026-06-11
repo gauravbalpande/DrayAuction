@@ -152,3 +152,4 @@ jobs:
           echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Image Tag | \`${{ env.IMAGE_TAG }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| ArgoCD Sync | Auto-triggered |" >> $GITHUB_STEP_SUMMARY
+          echo "just for testing"

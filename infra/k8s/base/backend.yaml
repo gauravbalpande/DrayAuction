@@ -40,7 +40,7 @@ spec:
       containers:
         - name: backend
           # Image tag is overridden by ArgoCD / Kustomize per-env
-          image: 040342463442.dkr.ecr.ap-south-1.amazonaws.com/auctionxi/backend:973fa17253ffd9155b3e53573fe0462ee3849f11
+          image: 040342463442.dkr.ecr.ap-south-1.amazonaws.com/auctionxi/backend:c8f42d48a425e57da012945c2d70083806a65725
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
